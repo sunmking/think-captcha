@@ -12,10 +12,11 @@
 namespace sunmking\captcha;
 
 use Exception;
+use Psr\SimpleCache\InvalidArgumentException;
 use think\Config;
 use think\facade\Cache;
+use think\facade\Session;
 use think\Response;
-use think\Session;
 
 class Captcha
 {
@@ -65,24 +66,16 @@ class Captcha
      * 架构方法 设置参数
      * @access public
      * @param Config $config
-     * @param Session $store
      */
-    public function __construct(Config $config, Session $store)
+    public function __construct(Config $config)
     {
         $this->config  = $config;
-        $this->store = $store;
-    }
-
-    /**
-     * @param bool $bool
-     * @return $this
-     */
-    public function withRedis(bool $bool=true): Captcha
-    {
-        if(!!$bool){
-            $this->store = Cache::store('redis');
+        $driver = $this->config->get('captcha.driver','session');
+        if(in_array($driver,['redis','file','memcached','memcache','wincache'],true)){
+            $this->store = Cache::store($driver);
+        }else{
+            $this->store = Session::instance();
         }
-        return $this;
     }
 
     /**
@@ -107,7 +100,7 @@ class Captcha
     /**
      * 创建验证码
      * @return array
-     * @throws Exception
+     * @throws Exception|InvalidArgumentException
      */
     protected function generate(): array
     {
@@ -153,6 +146,7 @@ class Captcha
      * @access public
      * @param string $code 用户验证码
      * @return bool 用户验证码是否正确
+     * @throws InvalidArgumentException
      */
     public function check(string $code): bool
     {

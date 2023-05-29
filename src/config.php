@@ -30,7 +30,10 @@ return [
     'imageH'   => 0,
     // 验证码图片宽度
     'imageW'   => 0,
-
+    // 缓存驱动
+    // session 默认
+    //redis、file、memcached、memcache、wincache 需要在 config/cache.php 里添加相应的配置
+    'driver' => 'session'
     // 添加额外的验证码设置
     // verify => [
     //     'length'=>4,
