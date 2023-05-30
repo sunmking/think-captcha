@@ -132,20 +132,20 @@ class Captcha
 
         $hash = password_hash($key, PASSWORD_BCRYPT, ['cost' => 10]);
 
-        if($this->store instanceof Session){
+        if($this->store instanceof \think\Session){
             $uuid = Session::getId();
-            $this->store->set('captcha-' . $uuid->toString(), [
+            $this->store->set('captcha-' . $uuid, [
                 'key' => $hash,
             ]);
         }else{
-            $uuid = Uuid::uuid4();
-            $this->store->set('captcha-' . $uuid->toString(), [
+            $uuid = Uuid::uuid4()->toString();
+            $this->store->set('captcha-' . $uuid, [
                 'key' => $hash,
             ],$this->expire);
         }
 
         return [
-            'id' => $uuid->toString(),
+            'id' => $uuid,
             'value' => $bag,
             'key' => $hash,
         ];
@@ -160,7 +160,7 @@ class Captcha
      */
     public function check(string $code, string $uuid): bool
     {
-        if($this->store instanceof Session){
+        if($this->store instanceof \think\Session){
             $uuid = Session::getId();
         }
 
@@ -263,7 +263,7 @@ class Captcha
 
             return response($content, 200, ['Content-Length' => strlen($content),'id'=>$generator['id']])->contentType('image/png');
         } else {
-            $savePath = runtime_path() . '/tmp/' . $generator['id'] . '.png';
+            $savePath = runtime_path() . '/temp/' . $generator['id'] . '.png';
             // 输出图像
             imagepng($this->im, $savePath);
             imagedestroy($this->im);
