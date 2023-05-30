@@ -13,6 +13,7 @@ namespace sunmking\captcha;
 
 use Exception;
 use Psr\SimpleCache\InvalidArgumentException;
+use Ramsey\Uuid\Uuid;
 use think\Config;
 use think\facade\Cache;
 use think\facade\Session;
@@ -20,7 +21,7 @@ use think\Response;
 
 class Captcha
 {
-    private $im    = null; // 验证码图片实例
+    private $im = null; // 验证码图片实例
     private $color = null; // 验证码字体颜色
 
     /**
@@ -69,11 +70,11 @@ class Captcha
      */
     public function __construct(Config $config)
     {
-        $this->config  = $config;
-        $driver = $this->config->get('captcha.driver','session');
-        if(in_array($driver,['redis','file','memcached','memcache','wincache'],true)){
+        $this->config = $config;
+        $driver = $this->config->get('captcha.driver', 'session');
+        if (in_array($driver, ['redis', 'file', 'memcached', 'memcache', 'wincache'], true)) {
             $this->store = Cache::store($driver);
-        }else{
+        } else {
             $this->store = Session::instance();
         }
     }
@@ -107,11 +108,11 @@ class Captcha
         $bag = '';
 
         if ($this->math) {
-            $this->useZh  = false;
+            $this->useZh = false;
             $this->length = 5;
 
-            $x   = random_int(10, 30);
-            $y   = random_int(1, 9);
+            $x = random_int(10, 30);
+            $y = random_int(1, 9);
             $bag = "{$x} + {$y} = ";
             $key = $x + $y;
             $key .= '';
@@ -129,15 +130,17 @@ class Captcha
             $key = mb_strtolower($bag, 'UTF-8');
         }
 
+        $uuid = Uuid::uuid4();
         $hash = password_hash($key, PASSWORD_BCRYPT, ['cost' => 10]);
 
-        $this->store->set('captcha', [
+        $this->store->set('captcha-' . $uuid->toString(), [
             'key' => $hash,
-        ]);
+        ],$this->expire);
 
         return [
+            'id' => $uuid->toString(),
             'value' => $bag,
-            'key'   => $hash,
+            'key' => $hash,
         ];
     }
 
@@ -148,20 +151,20 @@ class Captcha
      * @return bool 用户验证码是否正确
      * @throws InvalidArgumentException
      */
-    public function check(string $code): bool
+    public function check(string $code, string $uuid): bool
     {
-        if (!$this->store->has('captcha')) {
+        if (!$this->store->has('captcha-' . $uuid)) {
             return false;
         }
 
-        $key = $this->store->get('captcha.key');
+        $key = $this->store->get('captcha-' . $uuid)['key'];
 
         $code = mb_strtolower($code, 'UTF-8');
 
         $res = password_verify($code, $key);
 
         if ($res) {
-            $this->store->delete('captcha');
+            $this->store->delete('captcha-'.$uuid);
         }
 
         return $res;
@@ -174,6 +177,7 @@ class Captcha
      * @param bool $api
      * @return Response
      * @throws Exception
+     * @throws InvalidArgumentException
      */
     public function create(string $config = null, bool $api = false): Response
     {
@@ -201,7 +205,7 @@ class Captcha
         $ttfPath = __DIR__ . '/../assets/' . ($this->useZh ? 'zhttfs' : 'ttfs') . '/';
 
         if (empty($this->fontttf)) {
-            $dir  = dir($ttfPath);
+            $dir = dir($ttfPath);
             $ttfs = [];
             while (false !== ($file = $dir->read())) {
                 if (substr($file, -4) === '.ttf' || substr($file, -4) === '.otf') {
@@ -232,20 +236,29 @@ class Captcha
 
         foreach ($text as $index => $char) {
 
-            $x     = $this->fontSize * ($index + 1) * ($this->math ? 1 : 1.5);
-            $y     = $this->fontSize + mt_rand(10, 20);
+            $x = $this->fontSize * ($index + 1) * ($this->math ? 1 : 1.5);
+            $y = $this->fontSize + mt_rand(10, 20);
             $angle = $this->math ? 0 : mt_rand(-40, 40);
 
             imagettftext($this->im, intval($this->fontSize), $angle, intval($x), intval($y), $this->color, $fontttf, $char);
         }
 
-        ob_start();
-        // 输出图像
-        imagepng($this->im);
-        $content = ob_get_clean();
-        imagedestroy($this->im);
+        if ($api !== true) {
+            ob_start();
+            // 输出图像
+            imagepng($this->im);
+            $content = ob_get_clean();
+            imagedestroy($this->im);
 
-        return response($content, 200, ['Content-Length' => strlen($content)])->contentType('image/png');
+            return response($content, 200, ['Content-Length' => strlen($content),'id'=>$generator['id']])->contentType('image/png');
+        } else {
+            $savePath = runtime_path() . '/captcha/' . $generator['id'] . '.png';
+            // 输出图像
+            imagepng($this->im, $savePath);
+            imagedestroy($this->im);
+            $base64 = $this->imageToBase64($savePath);
+            return response(['id' => $generator['id'], 'pic' => $base64])->contentType('application/json');
+        }
     }
 
     /**
@@ -277,7 +290,7 @@ class Captcha
         for ($px = $px1; $px <= $px2; $px = $px + 1) {
             if (0 != $w) {
                 $py = $A * sin($w * $px + $f) + $b + $this->imageH / 2; // y = Asin(ωx+φ) + b
-                $i  = (int) ($this->fontSize / 5);
+                $i = (int)($this->fontSize / 5);
                 while ($i > 0) {
                     imagesetpixel($this->im, intval($px + $i), intval($py + $i), intval($this->color)); // 这里(while)循环画像素点比imagettftext和imagestring用字体大小一次画出（不用这while循环）性能要好很多
                     $i--;
@@ -286,18 +299,18 @@ class Captcha
         }
 
         // 曲线后部分
-        $A   = mt_rand(1, intval($this->imageH / 2)); // 振幅
-        $f   = mt_rand(intval(-$this->imageH / 4), intval($this->imageH / 4)); // X轴方向偏移量
-        $T   = mt_rand(intval($this->imageH), intval($this->imageW) * 2); // 周期
-        $w   = (2 * M_PI) / $T;
-        $b   = $py - $A * sin($w * $px + $f) - $this->imageH / 2;
+        $A = mt_rand(1, intval($this->imageH / 2)); // 振幅
+        $f = mt_rand(intval(-$this->imageH / 4), intval($this->imageH / 4)); // X轴方向偏移量
+        $T = mt_rand(intval($this->imageH), intval($this->imageW) * 2); // 周期
+        $w = (2 * M_PI) / $T;
+        $b = $py - $A * sin($w * $px + $f) - $this->imageH / 2;
         $px1 = $px2;
         $px2 = $this->imageW;
 
         for ($px = $px1; $px <= $px2; $px = $px + 1) {
             if (0 != $w) {
                 $py = $A * sin($w * $px + $f) + $b + $this->imageH / 2; // y = Asin(ωx+φ) + b
-                $i  = (int) ($this->fontSize / 5);
+                $i = (int)($this->fontSize / 5);
                 while ($i > 0) {
                     imagesetpixel($this->im, intval($px + $i), intval($py + $i), intval($this->color));
                     $i--;
@@ -330,7 +343,7 @@ class Captcha
     protected function background(): void
     {
         $path = __DIR__ . '/../assets/bgs/';
-        $dir  = dir($path);
+        $dir = dir($path);
 
         $bgs = [];
         while (false !== ($file = $dir->read())) {
@@ -347,5 +360,24 @@ class Captcha
         $bgImage = @imagecreatefromjpeg($gb);
         @imagecopyresampled($this->im, $bgImage, 0, 0, 0, 0, (int)$this->imageW, (int)$this->imageH, $width, $height);
         @imagedestroy($bgImage);
+    }
+
+    /**
+     * @param $file
+     * @return string|null
+     */
+    protected function imageToBase64($file): ?string
+    {
+        $imageDetails = getimagesize($file);
+        if ($fp = fopen($file,"rb", 0)) {
+            $picture = fread($fp,filesize($file));
+            fclose($fp);
+            $base64 = chunk_split(base64_encode($picture));
+            @unlink($file);
+            //输出base64图片代码...
+            return 'data:'.$imageDetails['mime'].';base64,' . $base64;
+        }else{
+            return null;
+        }
     }
 }
