@@ -130,12 +130,19 @@ class Captcha
             $key = mb_strtolower($bag, 'UTF-8');
         }
 
-        $uuid = Uuid::uuid4();
         $hash = password_hash($key, PASSWORD_BCRYPT, ['cost' => 10]);
 
-        $this->store->set('captcha-' . $uuid->toString(), [
-            'key' => $hash,
-        ],$this->expire);
+        if($this->store instanceof Session){
+            $uuid = Session::getId();
+            $this->store->set('captcha-' . $uuid->toString(), [
+                'key' => $hash,
+            ]);
+        }else{
+            $uuid = Uuid::uuid4();
+            $this->store->set('captcha-' . $uuid->toString(), [
+                'key' => $hash,
+            ],$this->expire);
+        }
 
         return [
             'id' => $uuid->toString(),
@@ -153,6 +160,10 @@ class Captcha
      */
     public function check(string $code, string $uuid): bool
     {
+        if($this->store instanceof Session){
+            $uuid = Session::getId();
+        }
+
         if (!$this->store->has('captcha-' . $uuid)) {
             return false;
         }
@@ -252,12 +263,12 @@ class Captcha
 
             return response($content, 200, ['Content-Length' => strlen($content),'id'=>$generator['id']])->contentType('image/png');
         } else {
-            $savePath = runtime_path() . '/captcha/' . $generator['id'] . '.png';
+            $savePath = runtime_path() . '/tmp/' . $generator['id'] . '.png';
             // 输出图像
             imagepng($this->im, $savePath);
             imagedestroy($this->im);
             $base64 = $this->imageToBase64($savePath);
-            return response(['id' => $generator['id'], 'pic' => $base64])->contentType('application/json');
+            return json(['id' => $generator['id'], 'base64' => $base64])->contentType('application/json');
         }
     }
 
