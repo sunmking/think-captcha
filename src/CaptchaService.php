@@ -18,6 +18,7 @@ class CaptchaService extends Service
 
         $this->registerRoutes(function (Route $route) {
             $route->get('captcha/[:config]', "\\sunmking\\captcha\\CaptchaController@index");
+            $route->get('captcha/api/[:config]', "\\sunmking\\captcha\\CaptchaController@api");
         });
     }
 }

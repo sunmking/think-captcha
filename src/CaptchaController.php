@@ -11,10 +11,24 @@
 
 namespace sunmking\captcha;
 
+use Psr\SimpleCache\InvalidArgumentException;
+use think\Response;
+
 class CaptchaController
 {
-    public function index(Captcha $captcha, $config = null)
+    /**
+     * @throws InvalidArgumentException
+     */
+    public function index(Captcha $captcha, $config = null): Response
     {
         return $captcha->create($config);
+    }
+
+    /**
+     * @throws InvalidArgumentException
+     */
+    public function api(Captcha $captcha, $config = null): Response
+    {
+        return $captcha->create($config,true);
     }
 }
