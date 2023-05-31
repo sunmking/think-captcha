@@ -1,6 +1,6 @@
 <?php
 
-namespace sunmking\captcha;
+namespace Sunmking\Captcha;
 
 use think\Route;
 use think\Service;
@@ -17,8 +17,8 @@ class CaptchaService extends Service
         });
 
         $this->registerRoutes(function (Route $route) {
-            $route->get('captcha/apis/[:config]', "\\sunmking\\captcha\\CaptchaController@api");
-            $route->get('captcha/[:config]', "\\sunmking\\captcha\\CaptchaController@index");
+            $route->get('captcha/apis/[:config]', "\\Sunmking\\Captcha\\CaptchaController@api");
+            $route->get('captcha/[:config]', "\\Sunmking\\Captcha\\CaptchaController@index");
         });
     }
 }

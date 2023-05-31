@@ -9,7 +9,7 @@
 // | Author: yunwuxin <448901948@qq.com>
 // +----------------------------------------------------------------------
 
-namespace sunmking\captcha;
+namespace Sunmking\Captcha;
 
 use Psr\SimpleCache\InvalidArgumentException;
 use think\Response;

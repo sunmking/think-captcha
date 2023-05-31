@@ -14,7 +14,7 @@
     },
     "autoload": {
         "psr-4": {
-            "sunmking\\captcha\\": "src/"
+            "Sunmking\\Captcha\\": "src/"
         },
         "files": [
             "src/helper.php"
@@ -23,7 +23,7 @@
     "extra": {
         "think": {
             "services": [
-                "sunmking\\captcha\\CaptchaService"
+                "Sunmking\\Captcha\\CaptchaService"
             ],
             "config":{
                 "captcha": "src/config.php"
