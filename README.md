@@ -2,6 +2,8 @@
 
 thinkphp6 验证码类库
 
+> 基于官方修改  支持 redis、file、memcached、memcache、wincache 需要在 config/cache.php 里添加相应的配置
+
 ## 安装
 > composer require sunmking/think-captcha
 
@@ -24,11 +26,19 @@ public function captcha($id = '')
 
 ### 模板里输出验证码
 
-首先要在你应用的路由定义文件中，注册一个验证码路由规则。
+无需在路由文件里注册路由规则，安装完成后会自动注册 2 个验证码路由规则。
 
 ~~~
-\think\facade\Route::get('captcha/[:id]', "\\think\\captcha\\CaptchaController@index");
+\think\facade\Route::get('captcha/apis/[:config]', "\\Sunmking\\Captcha\\CaptchaController@index");
+\think\facade\Route::get('captcha/[:config]', "\\Sunmking\\Captcha\\CaptchaController@index");
 ~~~
+
+可以执行以下命令查看
+
+~~~
+ php think route:list
+~~~
+
 
 然后就可以在模板文件中使用
 ~~~
@@ -55,3 +65,34 @@ if(!captcha_check($captcha)){
  //验证失败
 };
 ~~~
+
+## 前后端分离使用
+
+### 配置
+
+1、需要在 config/cache.php 里添加相应的配置
+2、需要在 config/captcha.php 里添加相应的驱动
+
+~~~
+// session 默认
+//redis、file、memcached、memcache、wincache
+'driver' => 'session'
+~~~
+
+### 获取
+
+请求以下接口获取 base64 图片和 uuid
+
+~~~
+\think\facade\Route::get('captcha/apis/[:config]', "\\Sunmking\\Captcha\\CaptchaController@index");
+~~~
+
+
+### 验证
+
+if(!captcha_check($captcha,$uuid)){
+//验证失败
+};
+
+> 如果驱动为 session uuid也可以不传
+
